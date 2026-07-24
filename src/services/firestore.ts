@@ -18,6 +18,19 @@ import { INITIAL_PRODUCTS, INITIAL_CATEGORIES, INITIAL_OFFERS, INITIAL_REVIEWS, 
 
 const isDemo = process.env.NEXT_PUBLIC_FIREBASE_API_KEY === 'demo-api-key';
 
+// Helper to remove any undefined fields before writing to Firestore
+function cleanUndefined<T>(obj: T): T {
+  if (obj === null || typeof obj !== 'object') return obj;
+  if (Array.isArray(obj)) return obj.map(cleanUndefined) as any;
+  const result: any = {};
+  for (const [key, value] of Object.entries(obj)) {
+    if (value !== undefined) {
+      result[key] = cleanUndefined(value);
+    }
+  }
+  return result;
+}
+
 // Helper to save fallback data in localStorage for demo mode
 const getLocalState = <T>(key: string, defaultVal: T): T => {
   if (typeof window === 'undefined') return defaultVal;
@@ -102,7 +115,7 @@ export async function saveProduct(productData: Partial<Product>): Promise<Produc
     id: docId,
     updatedAt: new Date().toISOString(),
   };
-  await setDoc(doc(db, 'products', docId), payload, { merge: true });
+  await setDoc(doc(db, 'products', docId), cleanUndefined(payload), { merge: true });
   return payload as Product;
 }
 
@@ -156,7 +169,7 @@ export async function saveCategory(categoryData: Partial<Category>): Promise<Cat
 
   const docId = categoryData.id || doc(collection(db, 'categories')).id;
   const payload = { ...categoryData, id: docId };
-  await setDoc(doc(db, 'categories', docId), payload, { merge: true });
+  await setDoc(doc(db, 'categories', docId), cleanUndefined(payload), { merge: true });
   return payload as Category;
 }
 
@@ -211,7 +224,7 @@ export async function saveOffer(offerData: Partial<Offer>): Promise<Offer> {
 
   const docId = offerData.id || doc(collection(db, 'offers')).id;
   const payload = { ...offerData, id: docId };
-  await setDoc(doc(db, 'offers', docId), payload, { merge: true });
+  await setDoc(doc(db, 'offers', docId), cleanUndefined(payload), { merge: true });
   return payload as Offer;
 }
 
@@ -253,7 +266,7 @@ export async function submitReview(reviewData: Omit<Review, 'id' | 'createdAt' |
     return newReview;
   }
 
-  await setDoc(doc(db, 'reviews', newReview.id), newReview);
+  await setDoc(doc(db, 'reviews', newReview.id), cleanUndefined(newReview));
   return newReview;
 }
 
@@ -290,7 +303,7 @@ export async function saveOrderRecord(order: Order): Promise<void> {
   setLocalState('orders', orders);
 
   try {
-    await setDoc(doc(db, 'orders', order.id), order, { merge: true });
+    await setDoc(doc(db, 'orders', order.id), cleanUndefined(order), { merge: true });
   } catch (err) {
     console.warn('Firestore order save note:', err);
   }
@@ -331,7 +344,7 @@ export async function updateRestaurantSettings(settings: RestaurantSettings): Pr
     setLocalState('settings', settings);
     return;
   }
-  await setDoc(doc(db, 'settings', 'general'), settings, { merge: true });
+  await setDoc(doc(db, 'settings', 'general'), cleanUndefined(settings), { merge: true });
 }
 
 // ---------------- VISITOR ANALYTICS & PRECISE LOCATION ----------------
@@ -356,13 +369,14 @@ export async function updateVisitorRecord(visitorData: Partial<Visitor> & { visi
   visitors[visitorId] = updatedRecord;
   setLocalState('visitors', visitors);
 
-  // Directly attempt write to Firestore collection 'visitors'
+  // Directly attempt write to Firestore collection 'visitors', stripping any undefined keys
   try {
     const ref = doc(db, 'visitors', visitorId);
-    await setDoc(ref, updatedRecord, { merge: true });
+    const payload = cleanUndefined(updatedRecord);
+    await setDoc(ref, payload, { merge: true });
     console.log('✅ Synchronized visitor record to Firebase Firestore visitors collection!');
   } catch (err) {
-    console.warn('Firestore visitor write warning (check Firebase Rules if needed):', err);
+    console.warn('Firestore visitor write warning:', err);
   }
 }
 
