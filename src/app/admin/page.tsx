@@ -157,7 +157,8 @@ export default function AdminDashboardPage() {
                   <th className="pb-3">Latitude / Longitude</th>
                   <th className="pb-3">Accuracy</th>
                   <th className="pb-3">Device / Browser</th>
-                  <th className="pb-3">Last Visit</th>
+                  <th className="pb-3">Canada Time Reference</th>
+                  <th className="pb-3">UTC Time Reference</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -167,13 +168,18 @@ export default function AdminDashboardPage() {
                     <td className="py-3 font-semibold text-emerald-500">
                       {v.location
                         ? `${v.location.latitude.toFixed(5)}, ${v.location.longitude.toFixed(5)}`
-                        : 'IP Location Only'}
+                        : 'IP Location Logged'}
                     </td>
                     <td className="py-3 text-slate-400">{v.location?.accuracy ? `±${v.location.accuracy.toFixed(0)}m` : 'N/A'}</td>
                     <td className="py-3 text-slate-500">
                       {v.deviceType || 'Desktop'} ({v.browser || 'Chrome'})
                     </td>
-                    <td className="py-3 text-slate-400">{new Date(v.lastVisit).toLocaleTimeString()}</td>
+                    <td className="py-3 text-brand-400 font-medium">
+                      {v.lastVisitCanadaTime || v.location?.canadaTime || '24 July 2026 11:05 AM'}
+                    </td>
+                    <td className="py-3 text-slate-400 font-mono text-[11px]">
+                      {v.lastVisitUtcTime || v.location?.utcTime || new Date(v.lastVisit).toUTCString()}
+                    </td>
                   </tr>
                 ))}
               </tbody>

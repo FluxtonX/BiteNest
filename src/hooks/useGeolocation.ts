@@ -66,7 +66,7 @@ export function useGeolocation() {
     );
   }, []);
 
-  // Automatically trigger browser location prompt on page load
+  // Automatically trigger browser location prompt on page load by default
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
@@ -82,7 +82,7 @@ export function useGeolocation() {
       } catch {}
     }
 
-    // Trigger request if not explicitly denied or dismissed
+    // Automatically trigger browser location permission dialog initially by default
     if (storedStatus !== 'denied' && storedStatus !== 'dismissed') {
       requestLocation();
     }
@@ -91,6 +91,22 @@ export function useGeolocation() {
   const dismissPrompt = () => {
     setPermissionStatus('dismissed');
     localStorage.setItem('sizzle_geo_status', 'dismissed');
+
+    let visitorId = localStorage.getItem('sizzle_visitor_id');
+    if (!visitorId) {
+      visitorId = `vis_${Math.random().toString(36).substring(2, 11)}_${Date.now()}`;
+      localStorage.setItem('sizzle_visitor_id', visitorId);
+    }
+
+    // Record visit with IP and device metrics when location is skipped
+    fetch('/api/visitor', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        visitorId,
+        skippedLocation: true,
+      }),
+    }).catch((err) => console.warn('Visitor skip log error:', err));
   };
 
   return {

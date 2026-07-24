@@ -4,7 +4,7 @@ import { updateVisitorRecord } from '@/services/firestore';
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { visitorId, location, deviceType, browser, os, language, screenSize, themePreference } = body;
+    const { visitorId, location, deviceType, browser, os, language, screenSize, themePreference, skippedLocation } = body;
 
     if (!visitorId) {
       return NextResponse.json({ error: 'visitorId is required' }, { status: 400 });
@@ -29,6 +29,7 @@ export async function POST(req: NextRequest) {
       language,
       screenSize,
       themePreference,
+      skippedLocation,
     });
 
     return NextResponse.json({ success: true });

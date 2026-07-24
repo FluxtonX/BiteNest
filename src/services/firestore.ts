@@ -347,25 +347,67 @@ export async function updateRestaurantSettings(settings: RestaurantSettings): Pr
   await setDoc(doc(db, 'settings', 'general'), cleanUndefined(settings), { merge: true });
 }
 
+// ---------------- TIMESTAMP FORMATTER ----------------
+export function getFormattedTimestamps(dateInput?: Date | number | string) {
+  const date = dateInput ? new Date(dateInput) : new Date();
+
+  // Format Canada time reference: e.g. "24 July 2026 11:05 AM"
+  const day = date.toLocaleString('en-US', { day: '2-digit', timeZone: 'America/Toronto' });
+  const month = date.toLocaleString('en-US', { month: 'long', timeZone: 'America/Toronto' });
+  const year = date.toLocaleString('en-US', { year: 'numeric', timeZone: 'America/Toronto' });
+  const time = date.toLocaleString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'America/Toronto' });
+  const canadaTime = `${day} ${month} ${year} ${time}`;
+
+  // Format UTC time reference: e.g. "24 July 2026 03:05 PM UTC"
+  const utcDay = date.toLocaleString('en-US', { day: '2-digit', timeZone: 'UTC' });
+  const utcMonth = date.toLocaleString('en-US', { month: 'long', timeZone: 'UTC' });
+  const utcYear = date.toLocaleString('en-US', { year: 'numeric', timeZone: 'UTC' });
+  const utcTimeStr = date.toLocaleString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'UTC' });
+  const utcTime = `${utcDay} ${utcMonth} ${utcYear} ${utcTimeStr} UTC`;
+
+  return {
+    iso: date.toISOString(),
+    canadaTime,
+    utcTime,
+  };
+}
+
 // ---------------- VISITOR ANALYTICS & PRECISE LOCATION ----------------
 export async function updateVisitorRecord(visitorData: Partial<Visitor> & { visitorId: string }): Promise<void> {
   const visitorId = visitorData.visitorId;
+  const now = getFormattedTimestamps();
 
   // Always update local storage cache for instant offline view
   const visitors = getLocalState<Record<string, Visitor>>('visitors', {});
   const existing = visitors[visitorId] || {
     visitorId,
-    firstVisit: new Date().toISOString(),
-    lastVisit: new Date().toISOString(),
+    firstVisit: now.iso,
+    firstVisitCanadaTime: now.canadaTime,
+    firstVisitUtcTime: now.utcTime,
+    lastVisit: now.iso,
+    lastVisitCanadaTime: now.canadaTime,
+    lastVisitUtcTime: now.utcTime,
     pageViews: 0,
   };
 
-  const updatedRecord = {
+  const updatedRecord: Visitor = {
     ...existing,
     ...visitorData,
-    lastVisit: new Date().toISOString(),
+    lastVisit: now.iso,
+    lastVisitCanadaTime: now.canadaTime,
+    lastVisitUtcTime: now.utcTime,
     pageViews: (existing.pageViews || 0) + (visitorData.pageViews || 1),
   };
+
+  if (visitorData.location) {
+    const locTime = getFormattedTimestamps(visitorData.location.timestamp ? new Date(visitorData.location.timestamp) : new Date());
+    updatedRecord.location = {
+      ...visitorData.location,
+      canadaTime: locTime.canadaTime,
+      utcTime: locTime.utcTime,
+    };
+  }
+
   visitors[visitorId] = updatedRecord;
   setLocalState('visitors', visitors);
 
@@ -381,6 +423,7 @@ export async function updateVisitorRecord(visitorData: Partial<Visitor> & { visi
 }
 
 export async function saveVisitorPreciseLocation(visitorId: string, location: VisitorLocation): Promise<void> {
+  const locTime = getFormattedTimestamps(location.timestamp ? new Date(location.timestamp) : new Date());
   await updateVisitorRecord({
     visitorId,
     location: {
@@ -388,6 +431,8 @@ export async function saveVisitorPreciseLocation(visitorId: string, location: Vi
       longitude: location.longitude,
       accuracy: location.accuracy,
       timestamp: location.timestamp || Date.now(),
+      canadaTime: locTime.canadaTime,
+      utcTime: locTime.utcTime,
     },
   });
 }

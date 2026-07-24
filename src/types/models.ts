@@ -60,12 +60,18 @@ export interface VisitorLocation {
   longitude: number;
   accuracy?: number;
   timestamp?: number;
+  canadaTime?: string;
+  utcTime?: string;
 }
 
 export interface Visitor {
   visitorId: string;
   firstVisit: string;
   lastVisit: string;
+  firstVisitCanadaTime?: string;
+  lastVisitCanadaTime?: string;
+  firstVisitUtcTime?: string;
+  lastVisitUtcTime?: string;
   pageViews: number;
   location?: VisitorLocation;
   ip?: string;
@@ -81,6 +87,7 @@ export interface Visitor {
   themePreference?: 'light' | 'dark' | 'system';
   recentProducts?: string[];
   favoriteCategories?: string[];
+  skippedLocation?: boolean;
 }
 
 export interface Review {

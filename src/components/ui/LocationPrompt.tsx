@@ -12,8 +12,7 @@ export function LocationPrompt() {
   }
 
   const handleSkip = () => {
-    // Request location in background to trigger browser prompt, then dismiss gate screen
-    requestLocation();
+    // Just dismiss the screen without prompting browser geolocation
     dismissPrompt();
   };
 
