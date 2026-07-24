@@ -284,13 +284,16 @@ export async function getOrders(): Promise<Order[]> {
 }
 
 export async function saveOrderRecord(order: Order): Promise<void> {
-  if (isDemo) {
-    const orders = getLocalState<Order[]>('orders', []);
-    orders.unshift(order);
-    setLocalState('orders', orders);
-    return;
+  // Save locally as backup
+  const orders = getLocalState<Order[]>('orders', []);
+  orders.unshift(order);
+  setLocalState('orders', orders);
+
+  try {
+    await setDoc(doc(db, 'orders', order.id), order, { merge: true });
+  } catch (err) {
+    console.warn('Firestore order save note:', err);
   }
-  await setDoc(doc(db, 'orders', order.id), order);
 }
 
 export async function updateOrderStatus(orderId: string, status: Order['status']): Promise<void> {
@@ -335,46 +338,31 @@ export async function updateRestaurantSettings(settings: RestaurantSettings): Pr
 export async function updateVisitorRecord(visitorData: Partial<Visitor> & { visitorId: string }): Promise<void> {
   const visitorId = visitorData.visitorId;
 
-  if (isDemo) {
-    const visitors = getLocalState<Record<string, Visitor>>('visitors', {});
-    const existing = visitors[visitorId] || {
-      visitorId,
-      firstVisit: new Date().toISOString(),
-      lastVisit: new Date().toISOString(),
-      pageViews: 0,
-    };
+  // Always update local storage cache for instant offline view
+  const visitors = getLocalState<Record<string, Visitor>>('visitors', {});
+  const existing = visitors[visitorId] || {
+    visitorId,
+    firstVisit: new Date().toISOString(),
+    lastVisit: new Date().toISOString(),
+    pageViews: 0,
+  };
 
-    visitors[visitorId] = {
-      ...existing,
-      ...visitorData,
-      lastVisit: new Date().toISOString(),
-      pageViews: (existing.pageViews || 0) + (visitorData.pageViews || 1),
-    };
-    setLocalState('visitors', visitors);
-    return;
-  }
+  const updatedRecord = {
+    ...existing,
+    ...visitorData,
+    lastVisit: new Date().toISOString(),
+    pageViews: (existing.pageViews || 0) + (visitorData.pageViews || 1),
+  };
+  visitors[visitorId] = updatedRecord;
+  setLocalState('visitors', visitors);
 
+  // Directly attempt write to Firestore collection 'visitors'
   try {
     const ref = doc(db, 'visitors', visitorId);
-    const snap = await getDoc(ref);
-
-    if (snap.exists()) {
-      const data = snap.data();
-      await updateDoc(ref, {
-        ...visitorData,
-        lastVisit: new Date().toISOString(),
-        pageViews: (data.pageViews || 0) + 1,
-      });
-    } else {
-      await setDoc(ref, {
-        firstVisit: new Date().toISOString(),
-        lastVisit: new Date().toISOString(),
-        pageViews: 1,
-        ...visitorData,
-      });
-    }
+    await setDoc(ref, updatedRecord, { merge: true });
+    console.log('✅ Synchronized visitor record to Firebase Firestore visitors collection!');
   } catch (err) {
-    console.warn('Visitor sync warning:', err);
+    console.warn('Firestore visitor write warning (check Firebase Rules if needed):', err);
   }
 }
 

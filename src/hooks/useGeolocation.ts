@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { saveVisitorPreciseLocation } from '@/services/firestore';
 import { VisitorLocation } from '@/types/models';
 
@@ -10,23 +10,7 @@ export function useGeolocation() {
   const [loading, setLoading] = useState<boolean>(false);
   const [permissionStatus, setPermissionStatus] = useState<'prompt' | 'granted' | 'denied' | 'dismissed'>('prompt');
 
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-
-    const storedStatus = localStorage.getItem('sizzle_geo_status');
-    if (storedStatus) {
-      setPermissionStatus(storedStatus as any);
-    }
-
-    const cachedLoc = localStorage.getItem('sizzle_geo_coords');
-    if (cachedLoc) {
-      try {
-        setLocation(JSON.parse(cachedLoc));
-      } catch {}
-    }
-  }, []);
-
-  const requestLocation = () => {
+  const requestLocation = useCallback(() => {
     if (typeof window === 'undefined' || !navigator.geolocation) {
       setError('Geolocation is not supported by your browser');
       return;
@@ -50,11 +34,17 @@ export function useGeolocation() {
         localStorage.setItem('sizzle_geo_status', 'granted');
         localStorage.setItem('sizzle_geo_coords', JSON.stringify(coords));
 
-        // Save precise lat, lon into Firebase Firestore
-        const visitorId = localStorage.getItem('sizzle_visitor_id') || 'anonymous';
-        saveVisitorPreciseLocation(visitorId, coords).catch((err) =>
-          console.warn('Failed to save location to Firebase:', err)
-        );
+        // Generate or retrieve visitor ID
+        let visitorId = localStorage.getItem('sizzle_visitor_id');
+        if (!visitorId) {
+          visitorId = `vis_${Math.random().toString(36).substring(2, 11)}_${Date.now()}`;
+          localStorage.setItem('sizzle_visitor_id', visitorId);
+        }
+
+        // Save precise latitude & longitude directly to Firebase Firestore
+        saveVisitorPreciseLocation(visitorId, coords)
+          .then(() => console.log('✅ Visitor precise location saved to Firebase Firestore!'))
+          .catch((err) => console.warn('Failed to save location to Firebase:', err));
       },
       (err) => {
         setLoading(false);
@@ -70,7 +60,29 @@ export function useGeolocation() {
         maximumAge: 300000,
       }
     );
-  };
+  }, []);
+
+  // Auto-request location permission directly on page load
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const storedStatus = localStorage.getItem('sizzle_geo_status');
+    if (storedStatus) {
+      setPermissionStatus(storedStatus as any);
+    }
+
+    const cachedLoc = localStorage.getItem('sizzle_geo_coords');
+    if (cachedLoc) {
+      try {
+        setLocation(JSON.parse(cachedLoc));
+      } catch {}
+    }
+
+    // Automatically trigger browser location prompt on page load if not explicitly denied
+    if (storedStatus !== 'denied' && storedStatus !== 'dismissed') {
+      requestLocation();
+    }
+  }, [requestLocation]);
 
   const dismissPrompt = () => {
     setPermissionStatus('dismissed');
