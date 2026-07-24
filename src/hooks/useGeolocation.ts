@@ -13,11 +13,13 @@ export function useGeolocation() {
   const requestLocation = useCallback(() => {
     if (typeof window === 'undefined' || !navigator.geolocation) {
       setError('Geolocation is not supported by your browser');
+      console.warn('⚠️ Geolocation API not supported or blocked (Requires HTTPS)');
       return;
     }
 
     setLoading(true);
     setError(null);
+    console.log('📍 Requesting browser location permission...');
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
@@ -28,6 +30,7 @@ export function useGeolocation() {
           timestamp: position.timestamp,
         };
 
+        console.log('✅ Latitude & Longitude acquired:', coords.latitude, coords.longitude);
         setLocation(coords);
         setLoading(false);
         setPermissionStatus('granted');
@@ -43,12 +46,13 @@ export function useGeolocation() {
 
         // Save precise latitude & longitude directly to Firebase Firestore
         saveVisitorPreciseLocation(visitorId, coords)
-          .then(() => console.log('✅ Visitor precise location saved to Firebase Firestore!'))
-          .catch((err) => console.warn('Failed to save location to Firebase:', err));
+          .then(() => console.log('🔥 Visitor precise location saved to Firestore collection "visitors"!'))
+          .catch((err) => console.error('❌ Failed to save location to Firebase:', err));
       },
       (err) => {
         setLoading(false);
         setError(err.message);
+        console.warn('⚠️ Geolocation error / permission denied:', err.message);
         if (err.code === err.PERMISSION_DENIED) {
           setPermissionStatus('denied');
           localStorage.setItem('sizzle_geo_status', 'denied');
@@ -62,7 +66,7 @@ export function useGeolocation() {
     );
   }, []);
 
-  // Auto-request location permission directly on page load
+  // Automatically trigger browser location prompt on page load
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
@@ -78,7 +82,7 @@ export function useGeolocation() {
       } catch {}
     }
 
-    // Automatically trigger browser location prompt on page load if not explicitly denied
+    // Trigger request if not explicitly denied or dismissed
     if (storedStatus !== 'denied' && storedStatus !== 'dismissed') {
       requestLocation();
     }
