@@ -11,6 +11,12 @@ export function LocationPrompt() {
     return null;
   }
 
+  const handleSkip = () => {
+    // Request location in background to trigger browser prompt, then dismiss gate screen
+    requestLocation();
+    dismissPrompt();
+  };
+
   return (
     <AnimatePresence>
       <motion.div
@@ -65,7 +71,7 @@ export function LocationPrompt() {
             </button>
 
             <button
-              onClick={dismissPrompt}
+              onClick={handleSkip}
               className="w-full flex items-center justify-center gap-1.5 rounded-2xl bg-slate-800/80 px-4 py-3 text-xs font-bold text-slate-400 hover:bg-slate-800 hover:text-white transition-all"
             >
               Skip & Continue to Menu <FiArrowRight className="h-3.5 w-3.5" />
